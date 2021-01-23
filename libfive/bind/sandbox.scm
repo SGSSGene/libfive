@@ -63,19 +63,26 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
     (let recurse ((i parent-frame))
       (if (not (frame-source (stack-ref stack i)))
         (recurse (1- i)) i))))
-  (let recurse ((i lowest-frame))
-    (if (= i parent-frame)
-      (format port "~A: ~A\n" (- i lowest-frame)
-              ;; The parent frame is always a call in the form
-              ;; (eval (actual code we care about) ...), so we
-              ;; snip out that actual code
-              (car (frame-arguments (stack-ref stack i))))
-      (begin
-        (let ((s (stack-ref stack i)))
-        (format port "~A: ~A\n" (- i lowest-frame)
-                (frame-call-representation s)))
-        (recurse (1+ i))
-        ))))
+  (define total-depth (stack-length stack))
+  (let recurse ((i 1) (depth 0))
+    (if (<= i lowest-frame)
+      (let* ((frame (stack-ref stack i))
+             (src (frame-source frame))
+             (args (frame-arguments frame)))
+        (if (and (not src))
+          (begin
+            (if (< 0 (length args))
+              (format port "~d: ~A\n" depth (car args))
+              (format port "~d: ~A\n" depth (frame-call-representation frame))
+            )
+            (recurse (1+ i) (1+ depth))
+          )
+          (recurse (1+ i) depth)
+        )
+      )
+    )
+  )
+)
 
 (define (tag-var-addresses! d addr prev)
   "Recursively walks a clause d, ensuring that vars that have already
